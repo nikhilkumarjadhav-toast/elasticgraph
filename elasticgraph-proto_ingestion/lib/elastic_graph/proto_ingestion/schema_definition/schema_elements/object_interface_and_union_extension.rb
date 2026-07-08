@@ -85,7 +85,7 @@ module ElasticGraph
                 public_field_name: schema_field.name,
                 name_in_index: field.name_in_index
               )
-              label = "repeated " if repeated
+              label = schema.field_label(repeated)
               line = "  #{label}#{field_type} #{schema_field.name} = #{field_number};"
               line += " // #{type_comment}" if type_comment
               field_documentation = ProtoDocumentation

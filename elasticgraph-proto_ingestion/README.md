@@ -94,27 +94,93 @@ ElasticGraph.define_schema do |schema|
 end
 ```
 
+A custom scalar can also map to an externally defined proto type by passing `import:` with the
+proto file that defines it, and `comment:` documents the expected format on each generated field
+(useful when the proto type is wider than the ElasticGraph type):
+
+```ruby
+# in config/schema/phone_number.rb
+
+ElasticGraph.define_schema do |schema|
+  schema.scalar_type "PhoneNumber" do |t|
+    t.mapping type: "keyword"
+    t.json_schema type: "string"
+    t.protobuf type: "string", comment: "E.164 phone number"
+  end
+end
+```
+
+### Stable Field Numbers
+
+`schema_artifacts:dump` automatically reads and writes `proto_field_numbers.yaml`
+in the schema artifacts directory. Existing numbers stay fixed even if field order
+changes, and new fields get the next available numbers. Field numbers follow protobuf's
+rules: they must be between 1 and 536,870,911, and the protobuf-reserved 19000-19999
+range is never allocated and is rejected in mappings.
+
+Alternatives inside generated interface and union `oneof` blocks use the same stable
+message-field mappings, so adding or removing a concrete subtype does not renumber the
+remaining alternatives.
+
+`schema.proto` always uses the public GraphQL field names. When a field uses a
+different `name_in_index`, the sidecar YAML stores that override privately:
+
+```yaml
+messages:
+  Widget:
+    fields:
+      id: 1
+      display_name:
+        field_number: 2
+        name_in_index: displayName
+```
+
+If a field is renamed with `field.renamed_from`, `elasticgraph-proto_ingestion` reuses the
+existing field number under the new public field name.
+
+### Stable Enum Value Numbers
+
+Enum value numbers are pinned the same way, in an `enums` section of the sidecar. Existing
+values keep their numbers when other values are added or removed, new values get the next
+available numbers, and removed values keep their numbers reserved so they are never reused
+(number `0` is always the generated `*_UNSPECIFIED` value):
+
+```yaml
+enums:
+  WidgetColor:
+    values:
+      RED: 1
+      BLUE: 2
+```
+
 ## Type Mappings
 
 The generated `schema.proto` uses these built-in scalar mappings:
 
-| ElasticGraph Type | Protobuf Type |
-|-------------------|------------|
-| `Boolean`         | `bool`     |
-| `Cursor`          | `string`   |
-| `Date`            | `string`   |
-| `DateTime`        | `string`   |
-| `Float`           | `double`   |
-| `ID`              | `string`   |
-| `Int`             | `int32`    |
-| `JsonSafeLong`    | `int64`    |
-| `LocalTime`       | `string`   |
-| `LongString`      | `int64`    |
-| `String`          | `string`   |
-| `TimeZone`        | `string`   |
-| `Untyped`         | `string`   |
+| ElasticGraph Type | Protobuf Type               |
+|-------------------|-----------------------------|
+| `Boolean`         | `bool`                      |
+| `Cursor`          | `string`                    |
+| `Date`            | `string`                    |
+| `DateTime`        | `google.protobuf.Timestamp` |
+| `Float`           | `double`                    |
+| `ID`              | `string`                    |
+| `Int`             | `int32`                     |
+| `JsonSafeLong`    | `int64`                     |
+| `LocalTime`       | `string`                    |
+| `LongString`      | `int64`                     |
+| `String`          | `string`                    |
+| `TimeZone`        | `string`                    |
+| `Untyped`         | `string`                    |
 
 Additionally:
+- `DateTime` uses the [well-known `Timestamp` type](https://protobuf.dev/reference/protobuf/google.protobuf/#timestamp);
+  `schema.proto` imports `google/protobuf/timestamp.proto` automatically. Note that a `Timestamp`
+  is a UTC instant, so a publisher's original UTC offset is not preserved.
+- `string`-typed temporal scalars (`Date`, `LocalTime`, `TimeZone`) are wider than the
+  ElasticGraph types they carry, so generated fields of these types document the expected format
+  in a comment (e.g. `// ISO 8601 date, e.g. "2024-11-25"`). Values are validated when events
+  are ingested, just as with JSON ingestion.
 - List types become `repeated` fields.
 - Lists of lists (e.g. `[[Float!]!]!`) are not supported because Protocol Buffers cannot represent
   them directly. Schema artifact generation raises an error identifying the unsupported field.

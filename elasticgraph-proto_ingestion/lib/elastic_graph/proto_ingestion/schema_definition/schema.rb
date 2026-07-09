@@ -86,6 +86,13 @@ module ElasticGraph
           @field_number_mappings.enum_value_numbers_for(enum_name, value_names)
         end
 
+        # Returns previously pinned numbers for a protobuf enum.
+        #
+        # @api private
+        def pinned_enum_value_numbers(enum_name)
+          @field_number_mappings.pinned_enum_value_numbers(enum_name)
+        end
+
         # Returns the label for a protobuf field under the configured syntax.
         #
         # @api private

@@ -41,6 +41,7 @@ module ElasticGraph
           previous_field_names: ::Array[::String]
         ) -> ::Integer
         def enum_value_numbers_for: (::String, ::Array[::String]) -> ::Hash[::String, ::Integer]
+        def pinned_enum_value_numbers: (::String) -> ::Hash[::String, ::Integer]
         def to_artifact: () -> ::Hash[::String, untyped]
 
         private

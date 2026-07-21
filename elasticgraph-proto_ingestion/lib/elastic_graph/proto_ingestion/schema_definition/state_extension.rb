@@ -6,7 +6,9 @@
 #
 # frozen_string_literal: true
 
+require "elastic_graph/proto_ingestion"
 require "elastic_graph/proto_ingestion/schema_definition/proto_ingestion_state"
+require "yaml"
 
 module ElasticGraph
   module ProtoIngestion
@@ -19,10 +21,23 @@ module ElasticGraph
         attr_reader :proto_ingestion_state
 
         def self.extended(state)
+          field_number_mappings =
+            if (path = state.proto_field_numbers_path) && ::File.exist?(path)
+              ::YAML.safe_load_file(path, aliases: false)
+            else
+              {} # : ::Hash[::String, untyped]
+            end
+
           state.instance_variable_set(
             :@proto_ingestion_state,
-            ProtoIngestionState.new(package_name: "elasticgraph")
+            ProtoIngestionState.new(package_name: "elasticgraph", field_number_mappings: field_number_mappings)
           )
+        end
+
+        def proto_field_numbers_path
+          return unless path_to_schema
+
+          ::File.join(::File.dirname(path_to_schema), PROTO_FIELD_NUMBERS_FILE)
         end
       end
     end

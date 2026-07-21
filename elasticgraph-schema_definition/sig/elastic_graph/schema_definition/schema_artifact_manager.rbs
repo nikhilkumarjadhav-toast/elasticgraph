@@ -57,6 +57,8 @@ module ElasticGraph
         ^(::String) -> T,
         ::Array[::String],
         ::String) -> void
+
+      def with: (?file_name: ::String) -> self
     end
 
     class SchemaArtifact[T] < SchemaArtifactSupertype[T]
